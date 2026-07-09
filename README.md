@@ -13,7 +13,7 @@ O objetivo do projeto **não** é reproduzir um sistema bancário real, e sim de
 | Etapa | Conteúdo | Status |
 |-------|----------|--------|
 | 0 — Organização do projeto | Repositório, dependências, README | ✅ |
-| 1 — Base Kaggle e EDA | `notebooks/01_eda.ipynb`, link da base | ⬜ TODO |
+| 1 — Base Kaggle e EDA | `notebooks/01_eda.ipynb`, link da base | 🔶 Em andamento (dados baixados) |
 | 2 — Preparação da base | Features do cliente + definição dos braços | ⬜ TODO |
 | 3 — Baseline e estratégia algorítmica | Baseline vs. Thompson Sampling / Epsilon-Greedy | ⬜ TODO |
 | 4 — Avaliação e casos de teste | Métricas + golden set de 5 clientes | ⬜ TODO |
@@ -50,11 +50,17 @@ jupyter notebook notebooks/
 uvicorn src.main:app --reload
 ```
 
-> Nota: `requirements.txt` ainda será adicionado (Etapa 0, em andamento).
-
 ## Base de dados (Etapa 1)
 
-*A preencher: link da base Kaggle escolhida, número de linhas/colunas, variável alvo e colunas descartadas por vazamento (ex. `duration`).*
+**Base:** [Bank Marketing (henriqueyamahata)](https://www.kaggle.com/datasets/henriqueyamahata/bank-marketing) — cópia direta do [UCI Bank Marketing Dataset](https://archive.ics.uci.edu/dataset/222/bank+marketing) (Moro et al., 2014, CC BY 4.0).
+
+- **Arquivo:** `bank-additional-full.csv`, salvo em `data/raw/bank-additional-full.csv`
+- **Dimensões:** 41.188 linhas × 21 colunas (20 features + variável alvo)
+- **Separador:** `;`
+- **Variável alvo:** `y` (`yes`/`no` — cliente assinou depósito a prazo), usada como proxy de conversão
+- **Taxa de conversão global:** ≈ 11,27% (`yes`)
+- **Coluna a descartar por vazamento temporal:** `duration` (duração da última chamada só é conhecida *depois* da decisão de oferta — não pode ser usada como feature de entrada)
+- **Demais colunas:** dados do cliente (`age`, `job`, `marital`, `education`, `default`, `housing`, `loan`), da campanha (`contact`, `month`, `day_of_week`, `campaign`, `pdays`, `previous`, `poutcome`) e de contexto macroeconômico (`emp.var.rate`, `cons.price.idx`, `cons.conf.idx`, `euribor3m`, `nr.employed`)
 
 ## Preparação da base e definição dos braços (Etapa 2)
 
