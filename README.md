@@ -18,7 +18,7 @@ O objetivo do projeto **não** é reproduzir um sistema bancário real, e sim de
 | 3 — Baseline e estratégia algorítmica | Baseline vs. Thompson Sampling / Epsilon-Greedy | ✅ |
 | 4 — Avaliação e casos de teste | Métricas + golden set de 5 clientes | ✅ |
 | 5 — Serviço demonstrável | API FastAPI `/recommend` | ✅ |
-| 6 — Arquitetura-alvo em nuvem | Parágrafo de arquitetura AWS | ⬜ TODO |
+| 6 — Arquitetura-alvo em nuvem | Parágrafo de arquitetura AWS | ✅ |
 | 7 — Ciclo de vida MLOps | Tracking de experimentos via MLflow | ⬜ TODO |
 | 8 — Apresentação final | Vídeo pitch (≤5 min) | ⬜ TODO |
 
@@ -263,7 +263,24 @@ validar o build localmente antes de usá-lo como evidência na Etapa 8.
 
 ## Arquitetura-alvo em nuvem (Etapa 6)
 
-*A preencher: parágrafo explicando os serviços de nuvem (AWS) usados para colocar o projeto em produção.*
+Este projeto roda localmente (notebooks + o serviço FastAPI da Etapa 5), mas foi desenhado pensando em como rodaria em produção. A referência de nuvem escolhida é a **AWS** (Seção 1.5/2.2 do `PLANO_DATATHON.md`):
+
+> Em produção, os dados brutos e versionados do Kaggle seriam armazenados no **Amazon S3** (camada raw/processed), com o pipeline de EDA e feature engineering orquestrado por um job agendado (ex. **AWS Glue** ou um container batch no **ECS Fargate**). O treinamento e a comparação entre baseline e política adaptativa rodariam sob **Amazon SageMaker Training Jobs**, com **MLflow** apontando para um backend de tracking no S3/RDS para versionar experimentos, parâmetros e métricas. O modelo/política aprovado seria publicado como endpoint via **SageMaker Endpoint** ou como container **FastAPI em ECS Fargate** atrás de **API Gateway**, com autenticação via **IAM**/API keys. Observabilidade e risco operacional seriam cobertos por **CloudWatch** (logs, métricas de latência/erro) e alarmes para taxa de exploração e conversão fora do esperado. Decisões sensíveis manteriam humano no loop via um passo de aprovação antes de qualquer expansão de braços/ofertas, e o versionamento de dados seguiria política de minimização e retenção documentada.
+
+### Mapeamento — o que existe hoje vs. o que rodaria em produção
+
+| Componente do pipeline | O que existe hoje (local) | Equivalente na AWS |
+|-------------------------|---------------------------|---------------------|
+| Dados brutos/processados | `data/raw/`, `data/processed/` | **S3** (camadas raw/processed) |
+| EDA e feature engineering | `notebooks/eda.ipynb`, `src/features.py` | **AWS Glue** ou job batch em **ECS Fargate** |
+| Treino/comparação de políticas | `src/train_policies.py` | **SageMaker Training Jobs** |
+| Tracking de experimentos | MLflow local (Etapa 7) | **MLflow** com backend S3/RDS |
+| Serviço de recomendação | `src/service.py` (FastAPI local, Etapa 5) | **SageMaker Endpoint** ou FastAPI em **ECS Fargate** atrás de **API Gateway** |
+| Observabilidade | logs do `uvicorn` | **CloudWatch** (logs, latência, alarmes de taxa de exploração/conversão) |
+
+### Por que não implantar de fato na AWS (trade-off registrado, Seção 2.3 do plano)
+
+O desafio exige uma solução "demonstrável", não uma implantação real — deploy de fato na AWS consome dias de um cronograma solo sem agregar nota (o peso está em código + modelo + MLflow + demo). Por isso o serviço da Etapa 5 roda local (FastAPI), e a arquitetura AWS fica documentada, não implantada — o que está dentro do escopo explicitamente permitido pelo desafio (Seção 1.3 do `PLANO_DATATHON.md`, "fora do escopo: infraestrutura cloud realmente provisionada").
 
 ## Ciclo de vida MLOps (Etapa 7)
 
