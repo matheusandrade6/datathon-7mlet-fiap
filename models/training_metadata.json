@@ -1,0 +1,37 @@
+{
+  "split_seed": 42,
+  "online_sim_size": 0.3,
+  "online_sim_seed": 123,
+  "epsilon_greedy_seed": 42,
+  "prior_strength": 500,
+  "epsilon": 0.1,
+  "p_global_treino": 0.11265417111780131,
+  "n_rounds_treinados": 12357,
+  "reproduziu_epic3_resultados": true,
+  "resumo_geral": [
+    {
+      "policy": "baseline",
+      "rounds": 12357,
+      "conversoes": 1691.0,
+      "taxa_conversao": 0.13685,
+      "regret_acumulado": 120.55739,
+      "uplift_vs_baseline_%": 0.0
+    },
+    {
+      "policy": "epsilon_greedy",
+      "rounds": 12357,
+      "conversoes": 1569.0,
+      "taxa_conversao": 0.12697,
+      "regret_acumulado": 169.89994,
+      "uplift_vs_baseline_%": -7.21467
+    },
+    {
+      "policy": "thompson_sampling",
+      "rounds": 12357,
+      "conversoes": 1665.0,
+      "taxa_conversao": 0.13474,
+      "regret_acumulado": 151.52955,
+      "uplift_vs_baseline_%": -1.53755
+    }
+  ]
+}
