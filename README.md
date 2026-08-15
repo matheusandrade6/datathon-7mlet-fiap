@@ -17,7 +17,7 @@ O objetivo do projeto **não** é reproduzir um sistema bancário real, e sim de
 | 2 — Preparação da base | `notebooks/preparacao_base.ipynb`, `src/features.py`, `src/arms.py` | ✅ |
 | 3 — Baseline e estratégia algorítmica | Baseline vs. Thompson Sampling / Epsilon-Greedy | ✅ |
 | 4 — Avaliação e casos de teste | Métricas + golden set de 5 clientes | ✅ |
-| 5 — Serviço demonstrável | API FastAPI `/recommend` | ⬜ TODO |
+| 5 — Serviço demonstrável | API FastAPI `/recommend` | ✅ |
 | 6 — Arquitetura-alvo em nuvem | Parágrafo de arquitetura AWS | ⬜ TODO |
 | 7 — Ciclo de vida MLOps | Tracking de experimentos via MLflow | ⬜ TODO |
 | 8 — Apresentação final | Vídeo pitch (≤5 min) | ⬜ TODO |
@@ -46,8 +46,13 @@ pip install -r requirements.txt
 # 3. abrir os notebooks (EDA, baseline/bandit, avaliação)
 jupyter notebook notebooks/
 
-# 4. rodar o serviço de recomendação (após a Etapa 5)
-uvicorn src.main:app --reload
+# 4. treinar/serializar as 3 políticas (gera models/*.joblib) — só precisa
+#    rodar de novo se os dados ou os algoritmos de src/bandit.py mudarem
+python -m src.train_policies
+
+# 5. rodar o serviço de recomendação (Etapa 5)
+uvicorn src.service:app --reload --port 8000
+# docs interativos (Swagger) em http://127.0.0.1:8000/docs
 ```
 
 ## Base de dados (Etapa 1)
@@ -180,7 +185,81 @@ Features completas, probabilidades por braço e justificativa detalhada de cada 
 
 ## Serviço de recomendação (Etapa 5)
 
-*A preencher: como chamar o endpoint/script e exemplo de request/response.*
+API FastAPI que serve as 3 políticas já treinadas/avaliadas nas Etapas 3 e 4
+(`baseline`, `epsilon_greedy`, `thompson_sampling`), em modo "servir"
+determinístico — sem o termo de exploração aleatória usado só durante o
+treino (a mesma regra da Seção 3 de `notebooks/avaliacao_golden_set.ipynb`):
+
+- **`baseline`** → sempre o braço de maior conversão média histórica no treino.
+- **`epsilon_greedy`** → `argmax(estimated_rates)` pós-treino (não é contextual — não varia por cliente).
+- **`thompson_sampling`** → `argmax(posterior_means)` do segmento do cliente — é a única política que muda a recomendação conforme o perfil do cliente, e é a **recomendação primária** do serviço (`recomendacao_primaria`), por ser o algoritmo adaptativo principal do projeto (Seção 1.5 do `PLANO_DATATHON.md`).
+
+### Arquivos
+
+| Arquivo | Papel |
+|---------|-------|
+| `src/train_policies.py` | Reproduz o pipeline de treino da Etapa 3/4 (mesmos seeds/priors) e serializa as 3 políticas treinadas em `models/*.joblib` (`joblib`). Confere automaticamente que reproduz `data/processed/epic3_resultados.json` antes de salvar. |
+| `src/service.py` | App FastAPI (`POST /recommend`, `GET /arms`, `GET /health`). Carrega os `.joblib` de `models/` no startup. |
+| `tests/test_golden_set.py` | Testa o endpoint com os 5 clientes do golden set da Etapa 4 e confere que a recomendação bate exatamente com `data/processed/epic4_resultados.json`. |
+| `Dockerfile` | Imagem que treina as políticas no build e sobe o serviço (opcional — Task 5.1.4). |
+
+### Como rodar
+
+```bash
+python -m src.train_policies          # gera models/*.joblib (uma vez, ou quando os dados/algoritmos mudarem)
+uvicorn src.service:app --reload --port 8000
+python -m pytest tests/test_golden_set.py -v   # valida contra o golden set da Etapa 4
+```
+
+### Exemplo — request/response
+
+Cliente 1 do golden set (`poutcome_success`), o único caso em que as 3
+políticas discordam:
+
+```bash
+curl -X POST http://127.0.0.1:8000/recommend \
+  -H "Content-Type: application/json" \
+  -d '{
+    "age": 27, "job": "unknown", "marital": "single",
+    "education": "university.degree", "housing": "yes", "loan": "no",
+    "contact": "cellular", "month": "jun", "pdays": 3, "previous": 2,
+    "poutcome": "success"
+  }'
+```
+
+```json
+{
+  "segmento": "poutcome_success",
+  "p_arm_simulado": {"p_arm_0": 0.1127, "p_arm_1": 0.1425, "p_arm_2": 0.1521, "p_arm_3": 0.0958},
+  "recomendacoes": {
+    "baseline": {"arm": 1, "nome": "Oferta com apelo a benefício/taxa", "descricao": "..."},
+    "epsilon_greedy": {"arm": 1, "nome": "Oferta com apelo a benefício/taxa", "descricao": "..."},
+    "thompson_sampling": {"arm": 2, "nome": "Oferta reforçada para quem já converteu", "descricao": "..."}
+  },
+  "recomendacao_primaria": "thompson_sampling",
+  "politicas_concordam": false
+}
+```
+
+Só os campos `job`, `education`, `poutcome`, `previous`, `pdays` e `month`
+determinam o segmento (e portanto a recomendação do Thompson Sampling) — ver
+`src/bandit.segment_customer`. Os demais campos do payload (`age`, `marital`,
+`housing`, `loan`, `contact`) são aceitos para compor um cliente realista
+(mesmo formato do golden set), mas não influenciam a decisão de nenhuma das
+3 políticas.
+
+### Validação
+
+Os 5 casos de `tests/test_golden_set.py` passam e reproduzem exatamente as
+recomendações calculadas em `notebooks/avaliacao_golden_set.ipynb` (Etapa 4):
+em 4 dos 5 casos as 3 políticas concordam (braço 1); o único desacordo
+(cliente `poutcome_success`, Thompson Sampling recomenda o braço 2) é
+reproduzido pela API sem alteração.
+
+**Nota:** o `Dockerfile` foi escrito seguindo as boas práticas padrão (build
+Python slim + `pip install` + `train_policies` no build), mas não foi testado
+com `docker build` neste ambiente por falta de daemon Docker disponível — vale
+validar o build localmente antes de usá-lo como evidência na Etapa 8.
 
 ## Arquitetura-alvo em nuvem (Etapa 6)
 
