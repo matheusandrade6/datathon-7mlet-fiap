@@ -19,7 +19,7 @@ O objetivo do projeto **não** é reproduzir um sistema bancário real, e sim de
 | 4 — Avaliação e casos de teste | Métricas + golden set de 5 clientes | ✅ |
 | 5 — Serviço demonstrável | API FastAPI `/recommend` | ✅ |
 | 6 — Arquitetura-alvo em nuvem | Parágrafo de arquitetura AWS | ✅ |
-| 7 — Ciclo de vida MLOps | Tracking de experimentos via MLflow | ⬜ TODO |
+| 7 — Ciclo de vida MLOps | Tracking de experimentos via MLflow | ✅ |
 | 8 — Apresentação final | Vídeo pitch (≤5 min) | ⬜ TODO |
 
 ## Estrutura do repositório
@@ -53,6 +53,11 @@ python -m src.train_policies
 # 5. rodar o serviço de recomendação (Etapa 5)
 uvicorn src.service:app --reload --port 8000
 # docs interativos (Swagger) em http://127.0.0.1:8000/docs
+
+# 6. logar os experimentos no MLflow e visualizar a comparação (Etapa 7)
+python -m src.mlflow_tracking
+mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000
+# UI em http://127.0.0.1:5000
 ```
 
 ## Base de dados (Etapa 1)
@@ -284,7 +289,40 @@ O desafio exige uma solução "demonstrável", não uma implantação real — d
 
 ## Ciclo de vida MLOps (Etapa 7)
 
-*A preencher: como o MLflow foi usado para versionar parâmetros e métricas dos experimentos.*
+**Código:** `src/mlflow_tracking.py`
+
+Esta etapa não re-treina nada: ela reaproveita `models/training_metadata.json` (gerado por `src/train_policies.py`, Etapa 5) como fonte única de params e métricas, e apenas os registra no MLflow — 1 run por política (`baseline`, `epsilon_greedy`, `thompson_sampling`), dentro do mesmo experimento, para permitir comparar os 3 lado a lado na MLflow UI.
+
+### Configuração (Task 7.1.1)
+
+Tracking URI local, em arquivo único: `sqlite:///mlflow.db` na raiz do repositório. O "file store" clássico do MLflow (diretório `mlruns/` sem banco) está em modo de manutenção a partir do MLflow 3.x (aviso oficial recomendando migrar para um backend em banco) — por isso foi usado SQLite em vez dele, mas o espírito é o mesmo da decisão fechada na Seção 1.5 do `PLANO_DATATHON.md` ("MLflow localmente"): um único arquivo local, sem servidor remoto/managed, adequado para um grupo solo. `mlflow.db` fica fora do controle de versão (`.gitignore`) — é reproduzível a qualquer momento rodando `python -m src.mlflow_tracking`, assim como `models/*.joblib` é reproduzível via `train_policies.py`.
+
+### Params e métricas logados (Tasks 7.1.2–7.1.3)
+
+| Escopo | Nome | Origem |
+|---|---|---|
+| Comum às 3 políticas | `split_seed`, `online_sim_size`, `online_sim_seed`, `n_rounds_treinados`, `p_global_treino` | `models/training_metadata.json` |
+| Só `epsilon_greedy` | `epsilon`, `epsilon_greedy_seed` | idem |
+| Só `thompson_sampling` | `prior_strength` | idem |
+| Métricas (as 3 políticas) | `rounds`, `conversoes`, `taxa_conversao`, `regret_acumulado`, `uplift_vs_baseline_pct` | `models/training_metadata.json` → `resumo_geral` (mesmos números de `data/processed/epic3_resultados.json`) |
+| Tags | `projeto`, `etapa`, `policy`, `reproduziu_epic3_resultados` | fixas/derivadas da metadata |
+
+### Comparação de runs na MLflow UI (Task 7.1.4)
+
+Os 3 runs registrados no experimento `datathon-bandit-recommendation`:
+
+![3 runs no MLflow — baseline, epsilon_greedy, thompson_sampling](docs/epic7_mlflow_runs.png)
+
+Comparação lado a lado (params, métricas e tags) — a linha `policy` identifica cada coluna (`thompson_sampling`, `epsilon_greedy`, `baseline`, nessa ordem), e os números batem exatamente com a tabela da Seção "Simulação online e resultado comparativo — Etapa 3" acima:
+
+![Comparação de params e métricas dos 3 runs](docs/epic7_mlflow_comparacao.png)
+
+### Como rodar
+
+```bash
+python -m src.mlflow_tracking                                     # loga os 3 runs (idempotente — cria novos runs a cada execução)
+mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000      # UI em http://127.0.0.1:5000
+```
 
 ## Governança e uso de dados
 
