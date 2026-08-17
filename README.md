@@ -8,20 +8,6 @@ Instituições financeiras digitais precisam decidir, em diferentes canais, qual
 
 O objetivo do projeto **não** é reproduzir um sistema bancário real, e sim demonstrar maturidade em ML Engineering: formulação do problema, baseline, versionamento de experimentos, serviço de inferência, avaliação e documentação de limitações/governança.
 
-## Índice do projeto
-
-| Etapa | Conteúdo | Status |
-|-------|----------|--------|
-| 0 — Organização do projeto | Repositório, dependências, README | ✅ |
-| 1 — Base Kaggle e EDA | `notebooks/eda.ipynb`, link da base | ✅ |
-| 2 — Preparação da base | `notebooks/preparacao_base.ipynb`, `src/features.py`, `src/arms.py` | ✅ |
-| 3 — Baseline e estratégia algorítmica | Baseline vs. Thompson Sampling / Epsilon-Greedy | ✅ |
-| 4 — Avaliação e casos de teste | Métricas + golden set de 5 clientes | ✅ |
-| 5 — Serviço demonstrável | API FastAPI `/recommend` | ✅ |
-| 6 — Arquitetura-alvo em nuvem | Parágrafo de arquitetura AWS | ✅ |
-| 7 — Ciclo de vida MLOps | Tracking de experimentos via MLflow | ✅ |
-| 8 — Apresentação final | Vídeo pitch (≤5 min) | ⬜ TODO |
-
 ## Estrutura do repositório
 
 ```
@@ -268,7 +254,7 @@ validar o build localmente antes de usá-lo como evidência na Etapa 8.
 
 ## Arquitetura-alvo em nuvem (Etapa 6)
 
-Este projeto roda localmente (notebooks + o serviço FastAPI da Etapa 5), mas foi desenhado pensando em como rodaria em produção. A referência de nuvem escolhida é a **AWS** (Seção 1.5/2.2 do `PLANO_DATATHON.md`):
+Este projeto roda localmente (notebooks + o serviço FastAPI da Etapa 5), mas foi desenhado pensando em como rodaria em produção. A referência de nuvem sugerida é a **AWS**:
 
 > Em produção, os dados brutos e versionados do Kaggle seriam armazenados no **Amazon S3** (camada raw/processed), com o pipeline de EDA e feature engineering orquestrado por um job agendado (ex. **AWS Glue** ou um container batch no **ECS Fargate**). O treinamento e a comparação entre baseline e política adaptativa rodariam sob **Amazon SageMaker Training Jobs**, com **MLflow** apontando para um backend de tracking no S3/RDS para versionar experimentos, parâmetros e métricas. O modelo/política aprovado seria publicado como endpoint via **SageMaker Endpoint** ou como container **FastAPI em ECS Fargate** atrás de **API Gateway**, com autenticação via **IAM**/API keys. Observabilidade e risco operacional seriam cobertos por **CloudWatch** (logs, métricas de latência/erro) e alarmes para taxa de exploração e conversão fora do esperado. Decisões sensíveis manteriam humano no loop via um passo de aprovação antes de qualquer expansão de braços/ofertas, e o versionamento de dados seguiria política de minimização e retenção documentada.
 
@@ -323,11 +309,3 @@ Comparação lado a lado (params, métricas e tags) — a linha `policy` identif
 python -m src.mlflow_tracking                                     # loga os 3 runs (idempotente — cria novos runs a cada execução)
 mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000      # UI em http://127.0.0.1:5000
 ```
-
-## Governança e uso de dados
-
-Este projeto usa exclusivamente dados públicos do Kaggle, sem dados reais de clientes, identificadores, patrimônio, renda, gênero ou raça. Decisões de oferta mantêm humano no loop antes de qualquer expansão de braços, e o uso dos dados segue princípios de minimização e retenção mínima necessária para fins educacionais deste desafio.
-
-## Apresentação final (Etapa 8)
-
-*A preencher: link do vídeo pitch (≤5 min).*
